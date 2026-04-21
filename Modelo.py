@@ -41,9 +41,9 @@ def crear_gauge(valor, titulo, rango, unidad, color_barra):
     )
     return fig
 
-# Credenciales de Adafruit IO
-ADAFRUIT_IO_USERNAME = '***ADAFRUIT_USERNAME_REMOVED***'
-ADAFRUIT_IO_KEY = '***ADAFRUIT_KEY_REMOVED***'
+# Credenciales de Adafruit IO (Ocultas y protegidas con Streamlit Secrets)
+ADAFRUIT_IO_USERNAME = st.secrets["ADAFRUIT_IO_USERNAME"]
+ADAFRUIT_IO_KEY = st.secrets["ADAFRUIT_IO_KEY"]
 aio = Client(ADAFRUIT_IO_USERNAME, ADAFRUIT_IO_KEY)
 
 # 2. CARGAR EL CEREBRO DE LA IA 
