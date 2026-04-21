@@ -82,9 +82,8 @@ def obtener_datos_actuales():
         }])
         return df_live
     except Exception as e:
-        with placeholder_principal.container():
-            st.error(f"Error Técnico Adafruit Cloud: {str(e)}")
-        return None
+        return str(e)
+
 
 #4. INTERFAZ GRÁFICA Y CALIBRACIÓN DE RUIDO
 if ia_lista:
@@ -151,7 +150,7 @@ if ia_lista:
         while True:
             df_actual = obtener_datos_actuales()
             
-            if df_actual is not None:
+            if isinstance(df_actual, pd.DataFrame):
                 # 1. Ingresar lectura al buffer
                 historial_lecturas.append(df_actual)
                 
@@ -300,10 +299,12 @@ if ia_lista:
                     st.dataframe(historial_grafico)
             else:
                 with placeholder_principal.container():
-                    st.warning("Esperando respuesta del servidor Adafruit IO...")
+                    st.error("¡Fallo Crítico de Conexión en Adafruit IO!")
+                    st.error(f"Motivo Real: {df_actual}")  # df_actual ahora contiene el texto del error
+                    st.warning("Reintentando conexión automática a la red de Adafruit en 10 segundos...")
                 with placeholder_graficas.container():
-                    st.warning("Esperando respuesta del servidor Adafruit IO...")
+                    st.warning("Detenido por error de sincronización de Adafruit...")
                 with placeholder_reportes.container():
-                    st.warning("Esperando respuesta del servidor Adafruit IO...")
+                    st.warning("Proceso estancado esperando a Adafruit...")
                     
             time.sleep(10)
