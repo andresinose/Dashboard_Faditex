@@ -82,6 +82,8 @@ def obtener_datos_actuales():
         }])
         return df_live
     except Exception as e:
+        with placeholder_principal.container():
+            st.error(f"Error Técnico Adafruit Cloud: {str(e)}")
         return None
 
 #4. INTERFAZ GRÁFICA Y CALIBRACIÓN DE RUIDO
