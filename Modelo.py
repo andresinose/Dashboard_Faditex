@@ -232,7 +232,7 @@ if ia_lista:
                     with placeholder_principal.container():
                         # PANEL DE ALERTAS Y TERMÓMETRO
                         if forzar_alarma:
-                            st.markdown(f"### 🧪 MODO PRUEBA ACTIVO: Severidad Simulada al **{riesgo_porcentaje}%**")
+                            st.markdown(f"###  MODO PRUEBA ACTIVO: Severidad Simulada al **{riesgo_porcentaje}%**")
                         else:
                             st.markdown(f"### Índice de Severidad: **{riesgo_porcentaje}%**")
                         st.progress(riesgo_porcentaje / 100.0)
