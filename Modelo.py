@@ -127,11 +127,11 @@ if ia_lista:
 
     if "monitoreando" not in st.session_state:
         st.session_state.monitoreando = False
-    if "st.session_state.historial_lecturas" not in st.session_state:
+    if "historial_lecturas" not in st.session_state:
         st.session_state.historial_lecturas = []
-    if "st.session_state.historial_grafico" not in st.session_state:
+    if "historial_grafico" not in st.session_state:
         st.session_state.historial_grafico = pd.DataFrame()
-    if "st.session_state.total_incidencias" not in st.session_state:
+    if "total_incidencias" not in st.session_state:
         st.session_state.total_incidencias = 0
 
     if menu_seleccionado == "⚙️ Calibración":
