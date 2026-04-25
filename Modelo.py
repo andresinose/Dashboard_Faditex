@@ -198,7 +198,7 @@ if ia_lista:
                             st.progress(prog)
                             
                     time.sleep(10)
-                    continue
+                    break
                 
                 # 4. Aplicar Filtro: Promediar el buffer
                 df_calibrado = pd.concat(st.session_state.historial_lecturas).mean().to_frame().T
@@ -348,3 +348,6 @@ if ia_lista:
                         st.warning("Proceso estancado esperando a Adafruit...")
                     
             time.sleep(10)
+            break
+            
+        st.rerun()
