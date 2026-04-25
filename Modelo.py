@@ -125,6 +125,15 @@ if ia_lista:
     if "forzar_alarma" not in st.session_state:
         st.session_state.forzar_alarma = False
 
+    if "monitoreando" not in st.session_state:
+        st.session_state.monitoreando = False
+    if "st.session_state.historial_lecturas" not in st.session_state:
+        st.session_state.historial_lecturas = []
+    if "st.session_state.historial_grafico" not in st.session_state:
+        st.session_state.historial_grafico = pd.DataFrame()
+    if "st.session_state.total_incidencias" not in st.session_state:
+        st.session_state.total_incidencias = 0
+
     if menu_seleccionado == "⚙️ Calibración":
         st.markdown("### Configuración del Filtro Analítico")
         ventana_suavizado = st.slider(
@@ -148,34 +157,39 @@ if ia_lista:
     placeholder_reportes = st.empty() if menu_seleccionado == "📑 Reportes" else None
 
     placeholder_boton = st.empty()
-    if placeholder_boton.button("Iniciar Monitoreo en Vivo", type="primary", use_container_width=True):
+    if not st.session_state.monitoreando:
+        if placeholder_boton.button("Iniciar Monitoreo en Vivo", type="primary", use_container_width=True):
+            st.session_state.monitoreando = True
+            st.session_state.historial_lecturas = []
+            st.session_state.historial_grafico = pd.DataFrame()
+            st.session_state.total_incidencias = 0
+            placeholder_boton.empty()
+            st.rerun()
+            
+    if st.session_state.monitoreando:
         placeholder_boton.empty() # Desvanece el botón para limpiar la interfaz
-        historial_lecturas = [] # Buffer de memoria RAM para el filtro
-        historial_grafico = pd.DataFrame() # Memoria para el gráfico en vivo
-        total_incidencias = 0 # Contador de anomalías
-        
         while True:
             df_actual = obtener_datos_actuales()
             
             if isinstance(df_actual, pd.DataFrame):
                 # 1. Ingresar lectura al buffer
-                historial_lecturas.append(df_actual)
+                st.session_state.historial_lecturas.append(df_actual)
                 
                 # 2. Eliminar lecturas viejas si superamos el límite del slider
-                if len(historial_lecturas) > ventana_suavizado:
-                    historial_lecturas.pop(0)
+                if len(st.session_state.historial_lecturas) > ventana_suavizado:
+                    st.session_state.historial_lecturas.pop(0)
                     
                 # 3. Fase de Calibración
-                if len(historial_lecturas) < ventana_suavizado:
+                if len(st.session_state.historial_lecturas) < ventana_suavizado:
                     if placeholder_principal is not None:
                         with placeholder_principal.container():
-                            st.info(f"⏳ **Calibrando IA...** Por favor espera mientras el filtro anti-ruido absorbe y estabiliza el impacto eléctrico inicial del encendido ({len(historial_lecturas)} de {ventana_suavizado} lecturas requeridas).")
-                            st.progress(len(historial_lecturas) / float(ventana_suavizado))
+                            st.info(f"⏳ **Calibrando IA...** Por favor espera mientras el filtro anti-ruido absorbe y estabiliza el impacto eléctrico inicial del encendido ({len(st.session_state.historial_lecturas)} de {ventana_suavizado} lecturas requeridas).")
+                            st.progress(len(st.session_state.historial_lecturas) / float(ventana_suavizado))
                     time.sleep(10)
                     continue
                 
                 # 4. Aplicar Filtro: Promediar el buffer
-                df_calibrado = pd.concat(historial_lecturas).mean().to_frame().T
+                df_calibrado = pd.concat(st.session_state.historial_lecturas).mean().to_frame().T
                 
                 # 5. Inferencia y Nivel de Severidad
                 dato_normalizado = scaler.transform(df_calibrado)
@@ -199,7 +213,7 @@ if ia_lista:
                 df_calibrado['Estado'] = 'Incidencia' if riesgo_porcentaje >= 50 else 'Normal'
                 
                 # Guardar para la gráfica (24h = 8640 lecturas de 10s)
-                historial_grafico = pd.concat([historial_grafico, df_calibrado], ignore_index=True).tail(8640)
+                st.session_state.historial_grafico = pd.concat([st.session_state.historial_grafico, df_calibrado], ignore_index=True).tail(8640)
                 
                 # --- 1. MONITOR PRINCIPAL ---
                 if placeholder_principal is not None:
@@ -213,7 +227,7 @@ if ia_lista:
 
                         # Mostrar resultados finales
                         if riesgo_porcentaje >= 50:
-                            total_incidencias += 1
+                            st.session_state.total_incidencias += 1
                             st.error("¡ALERTA ROJA! Anomalía ambiental detectada en la planta. Riesgo exponencial.")
                             # Alarma Sonora
                             audio_html = """
@@ -246,10 +260,10 @@ if ia_lista:
                         st.markdown("### Flujo de Estado e Incidencias (Últimas 24 horas)")
                         col_inc1, col_inc2 = st.columns([1, 3])
                         with col_inc1:
-                            st.metric(label="Número de Incidencias", value=total_incidencias)
+                            st.metric(label="Número de Incidencias", value=st.session_state.total_incidencias)
                         with col_inc2:
                             fig = px.scatter(
-                                historial_grafico, 
+                                st.session_state.historial_grafico, 
                                 x='Timestamp', 
                                 y='Riesgo', 
                                 color='Estado',
@@ -276,29 +290,29 @@ if ia_lista:
                         c1, c2, c3 = st.columns(3)
                         with c1:
                             st.markdown("**CO2 (ppm)**")
-                            st.line_chart(historial_grafico['co2'], height=180, color="#ff4b4b")
+                            st.line_chart(st.session_state.historial_grafico['co2'], height=180, color="#ff4b4b")
                         with c2:
                             st.markdown("**Humedad (%)**")
-                            st.line_chart(historial_grafico['humedad'], height=180, color="#00e676")
+                            st.line_chart(st.session_state.historial_grafico['humedad'], height=180, color="#00e676")
                         with c3:
                             st.markdown("**Temperatura (°C)**")
-                            st.line_chart(historial_grafico['temperatura'], height=180, color="#ffa500")
+                            st.line_chart(st.session_state.historial_grafico['temperatura'], height=180, color="#ffa500")
 
                         # Fila 2 de gráficos
                         c4, c5 = st.columns(2)
                         with c4:
                             st.markdown("**Ruido Ambiental (dB)**")
-                            st.line_chart(historial_grafico['ruido'], height=180, color="#1e90ff")
+                            st.line_chart(st.session_state.historial_grafico['ruido'], height=180, color="#1e90ff")
                         with c5:
                             st.markdown("**Gases TVOC (ppb)**")
-                            st.line_chart(historial_grafico['tvoc'], height=180, color="#9400d3")
+                            st.line_chart(st.session_state.historial_grafico['tvoc'], height=180, color="#9400d3")
                 
                 # --- 3. REPORTES ---
                 if placeholder_reportes is not None:
                     with placeholder_reportes.container():
                         st.markdown("### Resumen Estadístico de la Sesión")
                         cols_sensor = ['co2', 'humedad', 'ruido', 'temperatura', 'tvoc']
-                        est_df = historial_grafico[cols_sensor].describe().T[['min', 'mean', 'max']]
+                        est_df = st.session_state.historial_grafico[cols_sensor].describe().T[['min', 'mean', 'max']]
                         est_df.columns = ['Mínimo Histórico', 'Promedio', 'Máximo Alcanzado']
                         st.dataframe(est_df.style.format("{:.1f}"))
 
@@ -307,7 +321,7 @@ if ia_lista:
                         # TABLA DE DATOS Y EXPORTACIÓN
                         st.markdown("### Registro de Datos Histórico (Crudo)")
                         st.info("Descarga estos datos como CSV desplazando el cursor sobre la tabla inferior y dando click al botón de descarga flotante.")
-                        st.dataframe(historial_grafico)
+                        st.dataframe(st.session_state.historial_grafico)
             else:
                 if placeholder_principal is not None:
                     with placeholder_principal.container():
