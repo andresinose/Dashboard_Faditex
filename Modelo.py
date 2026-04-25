@@ -117,6 +117,7 @@ if ia_lista:
             "📍 Monitor Principal", 
             "📈 Gráficas Históricas", 
             "📑 Reportes", 
+            "📥 Descargar Reporte Histórico",
             "⚙️ Calibración"
         ])
 
@@ -155,6 +156,7 @@ if ia_lista:
     placeholder_principal = st.empty() if menu_seleccionado == "📍 Monitor Principal" else None
     placeholder_graficas = st.empty() if menu_seleccionado == "📈 Gráficas Históricas" else None
     placeholder_reportes = st.empty() if menu_seleccionado == "📑 Reportes" else None
+    placeholder_descarga = st.empty() if menu_seleccionado == "📥 Descargar Reporte Histórico" else None
 
     placeholder_boton = st.empty()
     if not st.session_state.monitoreando:
@@ -194,6 +196,10 @@ if ia_lista:
                             st.progress(prog)
                     elif placeholder_reportes is not None:
                         with placeholder_reportes.container():
+                            st.info(msg)
+                            st.progress(prog)
+                    elif placeholder_descarga is not None:
+                        with placeholder_descarga.container():
                             st.info(msg)
                             st.progress(prog)
                             
@@ -330,10 +336,23 @@ if ia_lista:
 
                         st.divider()
 
-                        # TABLA DE DATOS Y EXPORTACIÓN
-                        st.markdown("### Registro de Datos Histórico (Crudo)")
-                        st.info("Descarga estos datos como CSV desplazando el cursor sobre la tabla inferior y dando click al botón de descarga flotante.")
-                        st.dataframe(st.session_state.historial_grafico)
+                # --- 4. DESCARGA HISTÓRICA ---
+                if placeholder_descarga is not None:
+                    with placeholder_descarga.container():
+                        st.markdown("### 📥 Base de Datos de la Sesión de Monitoreo")
+                        st.info("A continuación se presenta la tabla completa con todos los datos registrados. Haz clic en el botón inferior para exportarlos a Excel (CSV).")
+                        st.dataframe(st.session_state.historial_grafico, use_container_width=True)
+                        
+                        if not st.session_state.historial_grafico.empty:
+                            csv = st.session_state.historial_grafico.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="Descargar Reporte Completo (CSV)",
+                                data=csv,
+                                file_name=f"reporte_ambiental_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
+                                mime="text/csv",
+                                type="primary",
+                                use_container_width=True
+                            )
             else:
                 if placeholder_principal is not None:
                     with placeholder_principal.container():
@@ -345,6 +364,9 @@ if ia_lista:
                         st.warning("Detenido por error de sincronización de Adafruit...")
                 if placeholder_reportes is not None:
                     with placeholder_reportes.container():
+                        st.warning("Proceso estancado esperando a Adafruit...")
+                if placeholder_descarga is not None:
+                    with placeholder_descarga.container():
                         st.warning("Proceso estancado esperando a Adafruit...")
                     
             time.sleep(10)
