@@ -181,10 +181,22 @@ if ia_lista:
                     
                 # 3. Fase de Calibración
                 if len(st.session_state.historial_lecturas) < ventana_suavizado:
+                    msg = f"⏳ **Calibrando IA...** Por favor espera mientras el filtro anti-ruido absorbe y estabiliza el impacto eléctrico inicial del encendido ({len(st.session_state.historial_lecturas)} de {ventana_suavizado} lecturas requeridas)."
+                    prog = len(st.session_state.historial_lecturas) / float(ventana_suavizado)
+                    
                     if placeholder_principal is not None:
                         with placeholder_principal.container():
-                            st.info(f"⏳ **Calibrando IA...** Por favor espera mientras el filtro anti-ruido absorbe y estabiliza el impacto eléctrico inicial del encendido ({len(st.session_state.historial_lecturas)} de {ventana_suavizado} lecturas requeridas).")
-                            st.progress(len(st.session_state.historial_lecturas) / float(ventana_suavizado))
+                            st.info(msg)
+                            st.progress(prog)
+                    elif placeholder_graficas is not None:
+                        with placeholder_graficas.container():
+                            st.info(msg)
+                            st.progress(prog)
+                    elif placeholder_reportes is not None:
+                        with placeholder_reportes.container():
+                            st.info(msg)
+                            st.progress(prog)
+                            
                     time.sleep(10)
                     continue
                 
