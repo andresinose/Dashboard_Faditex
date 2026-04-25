@@ -64,6 +64,51 @@ except FileNotFoundError:
     st.error("ERROR: No se encuentran los archivos .pkl del modelo entrenado en esta carpeta.")
     ia_lista = False
 
+@st.cache_data(ttl=3600)
+def cargar_datos_historicos_adafruit():
+    feeds = ['co2', 'humedad', 'sensor-de-sonido', 'temperatura', 'tvoc']
+    dataframes = []
+    
+    for feed in feeds:
+        try:
+            # Obtener TODOS los registros históricos almacenados en el feed de Adafruit IO
+            registros = aio.data(feed, max_results=None)
+            if not registros:
+                continue
+                
+            df_f = pd.DataFrame([{
+                'Timestamp': pd.to_datetime(r.created_at),
+                feed: float(r.value)
+            } for r in registros])
+            
+            df_f['Timestamp'] = df_f['Timestamp'].dt.tz_localize(None)
+            df_f.set_index('Timestamp', inplace=True)
+            dataframes.append(df_f)
+            
+            # Pausa para no saturar los límites de la API de Adafruit
+            time.sleep(1.5)
+        except Exception:
+            continue
+            
+    if not dataframes:
+        return pd.DataFrame()
+        
+    # Unir todos los dataframes por su marca de tiempo y sincronizarlos (Resample 10s)
+    df_historico = dataframes[0]
+    for i in range(1, len(dataframes)):
+        df_historico = df_historico.join(dataframes[i], how='outer')
+        
+    df_historico = df_historico.resample('10s').mean().ffill().dropna()
+    df_historico.reset_index(inplace=True)
+    
+    if 'sensor-de-sonido' in df_historico.columns:
+        df_historico.rename(columns={'sensor-de-sonido': 'ruido'}, inplace=True)
+        
+    # Formatear el Timestamp a string para asegurar compatibilidad en el CSV
+    df_historico['Timestamp'] = df_historico['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+    return df_historico
+
 # 3. FUNCIÓN PARA LEER LA API
 def obtener_datos_actuales():
     try:
@@ -339,16 +384,27 @@ if ia_lista:
                 # --- 4. DESCARGA HISTÓRICA ---
                 if placeholder_descarga is not None:
                     with placeholder_descarga.container():
-                        st.markdown("### 📥 Base de Datos de la Sesión de Monitoreo")
-                        st.info("A continuación se presenta la tabla completa con todos los datos registrados. Haz clic en el botón inferior para exportarlos a Excel (CSV).")
-                        st.dataframe(st.session_state.historial_grafico, use_container_width=True)
+                        st.markdown("### 📥 Base de Datos Histórica (Adafruit IO)")
+                        st.info("A continuación se presenta el registro histórico completo del sistema. Haz clic en el botón inferior para exportarlo a Excel (CSV).")
                         
+                        # Cargar el histórico consolidado desde la API
+                        with st.spinner("Conectando con Adafruit IO para descargar todo el historial... (Esto puede tardar unos minutos si hay mucha data)"):
+                            df_historico = cargar_datos_historicos_adafruit()
+                        
+                        # Combinarlo con los datos de la sesión actual si existen
                         if not st.session_state.historial_grafico.empty:
-                            csv = st.session_state.historial_grafico.to_csv(index=False).encode('utf-8')
+                            df_mostrar = pd.concat([df_historico, st.session_state.historial_grafico], ignore_index=True)
+                        else:
+                            df_mostrar = df_historico
+                            
+                        st.dataframe(df_mostrar, use_container_width=True)
+                        
+                        if not df_mostrar.empty:
+                            csv = df_mostrar.to_csv(index=False).encode('utf-8')
                             st.download_button(
-                                label="Descargar Reporte Completo (CSV)",
+                                label="Descargar Data Histórica Completa (CSV)",
                                 data=csv,
-                                file_name=f"reporte_ambiental_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
+                                file_name=f"historico_adafruit_completo_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
                                 mime="text/csv",
                                 type="primary",
                                 use_container_width=True
