@@ -198,24 +198,18 @@ if ia_lista:
         ventana_suavizado = st.session_state.ventana_suavizado
         forzar_alarma = st.session_state.forzar_alarma
 
-    placeholder_principal = st.empty() if menu_seleccionado == "📍 Monitor Principal" else None
-    placeholder_graficas = st.empty() if menu_seleccionado == "📈 Gráficas Históricas" else None
-    placeholder_reportes = st.empty() if menu_seleccionado == "📑 Reportes" else None
-    placeholder_descarga = st.empty() if menu_seleccionado == "📥 Descargar Reporte Histórico" else None
-
-    placeholder_boton = st.empty()
     if not st.session_state.monitoreando:
-        if placeholder_boton.button("Iniciar Monitoreo en Vivo", type="primary", use_container_width=True):
+        if st.button("Iniciar Monitoreo en Vivo", type="primary", use_container_width=True):
             st.session_state.monitoreando = True
             st.session_state.historial_lecturas = []
             st.session_state.historial_grafico = pd.DataFrame()
             st.session_state.total_incidencias = 0
-            placeholder_boton.empty()
             st.rerun()
             
     if st.session_state.monitoreando:
-        placeholder_boton.empty() # Desvanece el botón para limpiar la interfaz
-        while True:
+        
+        @st.fragment(run_every=10)
+        def ciclo_monitoreo():
             df_actual = obtener_datos_actuales()
             
             if isinstance(df_actual, pd.DataFrame):
@@ -230,26 +224,9 @@ if ia_lista:
                 if len(st.session_state.historial_lecturas) < ventana_suavizado:
                     msg = f"⏳ **Calibrando IA...** Por favor espera mientras el filtro anti-ruido absorbe y estabiliza el impacto eléctrico inicial del encendido ({len(st.session_state.historial_lecturas)} de {ventana_suavizado} lecturas requeridas)."
                     prog = len(st.session_state.historial_lecturas) / float(ventana_suavizado)
-                    
-                    if placeholder_principal is not None:
-                        with placeholder_principal.container():
-                            st.info(msg)
-                            st.progress(prog)
-                    elif placeholder_graficas is not None:
-                        with placeholder_graficas.container():
-                            st.info(msg)
-                            st.progress(prog)
-                    elif placeholder_reportes is not None:
-                        with placeholder_reportes.container():
-                            st.info(msg)
-                            st.progress(prog)
-                    elif placeholder_descarga is not None:
-                        with placeholder_descarga.container():
-                            st.info(msg)
-                            st.progress(prog)
-                            
-                    time.sleep(10)
-                    break
+                    st.info(msg)
+                    st.progress(prog)
+                    return
                 
                 # 4. Aplicar Filtro: Promediar el buffer
                 df_calibrado = pd.concat(st.session_state.historial_lecturas).mean().to_frame().T
@@ -279,153 +256,135 @@ if ia_lista:
                 st.session_state.historial_grafico = pd.concat([st.session_state.historial_grafico, df_calibrado], ignore_index=True).tail(8640)
                 
                 # --- 1. MONITOR PRINCIPAL ---
-                if placeholder_principal is not None:
-                    with placeholder_principal.container():
-                        # PANEL DE ALERTAS Y TERMÓMETRO
-                        if forzar_alarma:
-                            st.markdown(f"###  MODO PRUEBA ACTIVO: Severidad Simulada al **{riesgo_porcentaje}%**")
-                        else:
-                            st.markdown(f"### Índice de Severidad: **{riesgo_porcentaje}%**")
-                        st.progress(riesgo_porcentaje / 100.0)
+                if menu_seleccionado == "📍 Monitor Principal":
+                    # PANEL DE ALERTAS Y TERMÓMETRO
+                    if forzar_alarma:
+                        st.markdown(f"###  MODO PRUEBA ACTIVO: Severidad Simulada al **{riesgo_porcentaje}%**")
+                    else:
+                        st.markdown(f"### Índice de Severidad: **{riesgo_porcentaje}%**")
+                    st.progress(riesgo_porcentaje / 100.0)
 
-                        # Mostrar resultados finales
-                        if riesgo_porcentaje >= 50:
-                            st.session_state.total_incidencias += 1
-                            st.error("¡ALERTA ROJA! Anomalía ambiental detectada en la planta. Riesgo exponencial.")
-                            # Alarma Sonora
-                            audio_html = """
-                                <audio autoplay>
-                                    <source src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" type="audio/ogg">
-                                </audio>
-                            """
-                            components.html(audio_html, width=0, height=0)
-                        else:
-                            st.success("Estado del Sistema: Parámetros dentro del reglamento.")
+                    # Mostrar resultados finales
+                    if riesgo_porcentaje >= 50:
+                        st.session_state.total_incidencias += 1
+                        st.error("¡ALERTA ROJA! Anomalía ambiental detectada en la planta. Riesgo exponencial.")
+                        # Alarma Sonora
+                        audio_html = """
+                            <audio autoplay>
+                                <source src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" type="audio/ogg">
+                            </audio>
+                        """
+                        components.html(audio_html, width=0, height=0)
+                    else:
+                        st.success("Estado del Sistema: Parámetros dentro del reglamento.")
 
-                        st.markdown("### Tablero de Componentes Dinámicos")
-                        g1, g2, g3, g4, g5 = st.columns(5)
-                        # Generamos una llave única para esta iteración del loop
-                        loop_k = int(time.time() * 1000)
-                        with g1:
-                            st.plotly_chart(crear_gauge(df_calibrado['co2'][0], "CO2", [400, 2000], "ppm", "#ff4b4b"), use_container_width=True, key=f"g_co2_{loop_k}")
-                        with g2:
-                            st.plotly_chart(crear_gauge(df_calibrado['humedad'][0], "Humedad", [0, 100], "%", "#00e676"), use_container_width=True, key=f"g_hum_{loop_k}")
-                        with g3:
-                            st.plotly_chart(crear_gauge(df_calibrado['ruido'][0], "Ruido", [40, 130], "dB", "#1e90ff"), use_container_width=True, key=f"g_rui_{loop_k}")
-                        with g4:
-                            st.plotly_chart(crear_gauge(df_calibrado['temperatura'][0], "Temp.", [0, 50], "°C", "#ffa500"), use_container_width=True, key=f"g_tem_{loop_k}")
-                        with g5:
-                            st.plotly_chart(crear_gauge(df_calibrado['tvoc'][0], "TVOC", [0, 500], "ppb", "#9400d3"), use_container_width=True, key=f"g_tvc_{loop_k}")
+                    st.markdown("### Tablero de Componentes Dinámicos")
+                    g1, g2, g3, g4, g5 = st.columns(5)
+                    # Claves fijas (sin loop_k) para que el gráfico se actualice en lugar de reconstruirse
+                    with g1:
+                        st.plotly_chart(crear_gauge(df_calibrado['co2'][0], "CO2", [400, 2000], "ppm", "#ff4b4b"), use_container_width=True, key="g_co2")
+                    with g2:
+                        st.plotly_chart(crear_gauge(df_calibrado['humedad'][0], "Humedad", [0, 100], "%", "#00e676"), use_container_width=True, key="g_hum")
+                    with g3:
+                        st.plotly_chart(crear_gauge(df_calibrado['ruido'][0], "Ruido", [40, 130], "dB", "#1e90ff"), use_container_width=True, key="g_rui")
+                    with g4:
+                        st.plotly_chart(crear_gauge(df_calibrado['temperatura'][0], "Temp.", [0, 50], "°C", "#ffa500"), use_container_width=True, key="g_tem")
+                    with g5:
+                        st.plotly_chart(crear_gauge(df_calibrado['tvoc'][0], "TVOC", [0, 500], "ppb", "#9400d3"), use_container_width=True, key="g_tvc")
 
-                        st.divider()
+                    st.divider()
 
-                        # PANEL DE INCIDENCIAS (24 HORAS)
-                        st.markdown("### Flujo de Estado e Incidencias (Últimas 24 horas)")
-                        col_inc1, col_inc2 = st.columns([1, 3])
-                        with col_inc1:
-                            st.metric(label="Número de Incidencias", value=st.session_state.total_incidencias)
-                        with col_inc2:
-                            fig = px.scatter(
-                                st.session_state.historial_grafico, 
-                                x='Timestamp', 
-                                y='Riesgo', 
-                                color='Estado',
-                                color_discrete_map={'Normal': '#00e676', 'Incidencia': '#ff4b4b'},
-                            )
-                            fig.update_layout(
-                                xaxis_title="Hora",
-                                yaxis_title="Nivel de Riesgo (%)",
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font=dict(color='#aaaaaa'),
-                                margin=dict(l=0, r=0, t=0, b=0),
-                                legend_title_text=''
-                            )
-                            st.plotly_chart(fig, use_container_width=True, key=f"24h_scatter_{loop_k}")
+                    # PANEL DE INCIDENCIAS (24 HORAS)
+                    st.markdown("### Flujo de Estado e Incidencias (Últimas 24 horas)")
+                    col_inc1, col_inc2 = st.columns([1, 3])
+                    with col_inc1:
+                        st.metric(label="Número de Incidencias", value=st.session_state.total_incidencias)
+                    with col_inc2:
+                        fig = px.scatter(
+                            st.session_state.historial_grafico, 
+                            x='Timestamp', 
+                            y='Riesgo', 
+                            color='Estado',
+                            color_discrete_map={'Normal': '#00e676', 'Incidencia': '#ff4b4b'},
+                        )
+                        fig.update_layout(
+                            xaxis_title="Hora",
+                            yaxis_title="Nivel de Riesgo (%)",
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(color='#aaaaaa'),
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            legend_title_text=''
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key="24h_scatter")
                 
                 # --- 2. GRÁFICAS INDIVIDUALES ---
-                if placeholder_graficas is not None:
-                    with placeholder_graficas.container():
-                        # GRÁFICOS INDIVIDUALES POR SENSOR
-                        st.markdown("### Análisis de Tendencia Individual (Histórico)")
+                elif menu_seleccionado == "📈 Gráficas Históricas":
+                    # GRÁFICOS INDIVIDUALES POR SENSOR
+                    st.markdown("### Análisis de Tendencia Individual (Histórico)")
 
-                        # Fila 1 de gráficos
-                        c1, c2, c3 = st.columns(3)
-                        with c1:
-                            st.markdown("**CO2 (ppm)**")
-                            st.line_chart(st.session_state.historial_grafico['co2'], height=180, color="#ff4b4b")
-                        with c2:
-                            st.markdown("**Humedad (%)**")
-                            st.line_chart(st.session_state.historial_grafico['humedad'], height=180, color="#00e676")
-                        with c3:
-                            st.markdown("**Temperatura (°C)**")
-                            st.line_chart(st.session_state.historial_grafico['temperatura'], height=180, color="#ffa500")
+                    # Fila 1 de gráficos
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        st.markdown("**CO2 (ppm)**")
+                        st.line_chart(st.session_state.historial_grafico['co2'], height=180, color="#ff4b4b")
+                    with c2:
+                        st.markdown("**Humedad (%)**")
+                        st.line_chart(st.session_state.historial_grafico['humedad'], height=180, color="#00e676")
+                    with c3:
+                        st.markdown("**Temperatura (°C)**")
+                        st.line_chart(st.session_state.historial_grafico['temperatura'], height=180, color="#ffa500")
 
-                        # Fila 2 de gráficos
-                        c4, c5 = st.columns(2)
-                        with c4:
-                            st.markdown("**Ruido Ambiental (dB)**")
-                            st.line_chart(st.session_state.historial_grafico['ruido'], height=180, color="#1e90ff")
-                        with c5:
-                            st.markdown("**Gases TVOC (ppb)**")
-                            st.line_chart(st.session_state.historial_grafico['tvoc'], height=180, color="#9400d3")
+                    # Fila 2 de gráficos
+                    c4, c5 = st.columns(2)
+                    with c4:
+                        st.markdown("**Ruido Ambiental (dB)**")
+                        st.line_chart(st.session_state.historial_grafico['ruido'], height=180, color="#1e90ff")
+                    with c5:
+                        st.markdown("**Gases TVOC (ppb)**")
+                        st.line_chart(st.session_state.historial_grafico['tvoc'], height=180, color="#9400d3")
                 
                 # --- 3. REPORTES ---
-                if placeholder_reportes is not None:
-                    with placeholder_reportes.container():
-                        st.markdown("### Resumen Estadístico de la Sesión")
-                        cols_sensor = ['co2', 'humedad', 'ruido', 'temperatura', 'tvoc']
-                        est_df = st.session_state.historial_grafico[cols_sensor].describe().T[['min', 'mean', 'max']]
-                        est_df.columns = ['Mínimo Histórico', 'Promedio', 'Máximo Alcanzado']
-                        st.dataframe(est_df.style.format("{:.1f}"))
+                elif menu_seleccionado == "📑 Reportes":
+                    st.markdown("### Resumen Estadístico de la Sesión")
+                    cols_sensor = ['co2', 'humedad', 'ruido', 'temperatura', 'tvoc']
+                    est_df = st.session_state.historial_grafico[cols_sensor].describe().T[['min', 'mean', 'max']]
+                    est_df.columns = ['Mínimo Histórico', 'Promedio', 'Máximo Alcanzado']
+                    st.dataframe(est_df.style.format("{:.1f}"))
 
-                        st.divider()
+                    st.divider()
 
                 # --- 4. DESCARGA HISTÓRICA ---
-                if placeholder_descarga is not None:
-                    with placeholder_descarga.container():
-                        st.markdown("### 📥 Base de Datos Histórica (Adafruit IO)")
-                        st.info("A continuación se presenta el registro histórico completo del sistema. Haz clic en el botón inferior para exportarlo a Excel (CSV).")
-                        
-                        # Cargar el histórico consolidado desde la API
-                        with st.spinner("Conectando con Adafruit IO para descargar todo el historial... (Esto puede tardar unos minutos si hay mucha data)"):
-                            df_historico = cargar_datos_historicos_adafruit()
-                        
-                        # Combinarlo con los datos de la sesión actual si existen
-                        if not st.session_state.historial_grafico.empty:
-                            df_mostrar = pd.concat([df_historico, st.session_state.historial_grafico], ignore_index=True)
-                        else:
-                            df_mostrar = df_historico
-                            
-                        st.dataframe(df_mostrar, use_container_width=True)
-                        
-                        if not df_mostrar.empty:
-                            csv = df_mostrar.to_csv(index=False).encode('utf-8')
-                            st.download_button(
-                                label="Descargar Data Histórica Completa (CSV)",
-                                data=csv,
-                                file_name=f"historico_adafruit_completo_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
-                                mime="text/csv",
-                                type="primary",
-                                use_container_width=True
-                            )
-            else:
-                if placeholder_principal is not None:
-                    with placeholder_principal.container():
-                        st.error("¡Fallo Crítico de Conexión en Adafruit IO!")
-                        st.error(f"Motivo Real: {df_actual}")  
-                        st.warning("Reintentando conexión automática a Adafruit en 10 segundos...")
-                if placeholder_graficas is not None:
-                    with placeholder_graficas.container():
-                        st.warning("Detenido por error de sincronización de Adafruit...")
-                if placeholder_reportes is not None:
-                    with placeholder_reportes.container():
-                        st.warning("Proceso estancado esperando a Adafruit...")
-                if placeholder_descarga is not None:
-                    with placeholder_descarga.container():
-                        st.warning("Proceso estancado esperando a Adafruit...")
+                elif menu_seleccionado == "📥 Descargar Reporte Histórico":
+                    st.markdown("### 📥 Base de Datos Histórica (Adafruit IO)")
+                    st.info("A continuación se presenta el registro histórico completo del sistema. Haz clic en el botón inferior para exportarlo a Excel (CSV).")
                     
-            time.sleep(10)
-            break
-            
-        st.rerun()
+                    # Cargar el histórico consolidado desde la API
+                    with st.spinner("Conectando con Adafruit IO para descargar todo el historial... (Esto puede tardar unos minutos si hay mucha data)"):
+                        df_historico = cargar_datos_historicos_adafruit()
+                    
+                    # Combinarlo con los datos de la sesión actual si existen
+                    if not st.session_state.historial_grafico.empty:
+                        df_mostrar = pd.concat([df_historico, st.session_state.historial_grafico], ignore_index=True)
+                    else:
+                        df_mostrar = df_historico
+                        
+                    st.dataframe(df_mostrar, use_container_width=True)
+                    
+                    if not df_mostrar.empty:
+                        csv = df_mostrar.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="Descargar Data Histórica Completa (CSV)",
+                            data=csv,
+                            file_name=f"historico_adafruit_completo_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            type="primary",
+                            use_container_width=True
+                        )
+            else:
+                st.error("¡Fallo Crítico de Conexión en Adafruit IO!")
+                st.error(f"Motivo Real: {df_actual}")  
+                st.warning("Reintentando conexión automática a Adafruit en 10 segundos...")
+
+        # Iniciar el fragmento
+        ciclo_monitoreo()
