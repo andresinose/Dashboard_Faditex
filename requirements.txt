@@ -4,3 +4,4 @@ pandas==3.0.2
 plotly==6.7.0
 scikit-learn==1.8.0
 streamlit==1.56.0
+fpdf2==2.8.7
