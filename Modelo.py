@@ -165,7 +165,7 @@ def crear_gauge(valor, titulo, rango, unidad, color_barra):
         margin=dict(l=20, r=20, t=36, b=55),   # ← b=55 evita el solapamiento
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#aaaaaa', family='Inter, sans-serif')
+        font=dict(family='Inter, sans-serif')
     )
     return fig
 
@@ -532,7 +532,8 @@ if ia_lista:
         ".sidebar-section-label{font-size:.6rem;font-weight:700;color:#3a5577!important;text-transform:uppercase;letter-spacing:2px;padding:14px 20px 6px}",
         ".sidebar-footer{margin-top:28px;padding:12px 20px;border-top:1px solid rgba(0,60,140,.15);font-size:.62rem;color:#556688!important;text-align:center;line-height:1.7}",
         /* Header — blanco sólido con sombra para destacar del fondo azul */
-        ".z-header{background:#ffffff!important;border:1px solid rgba(0,100,200,.2)!important;border-radius:18px;padding:22px 28px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,50,150,.14)}",
+        ".z-header{background:#ffffff!important;border:1px solid rgba(0,100,200,.2)!important;border-radius:18px;padding:22px 28px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,50,150,.14);display:flex;align-items:center;gap:20px;overflow:hidden}",
+        ".z-logo-img{width:56px;height:56px;object-fit:contain;border-radius:50%;filter:drop-shadow(0 2px 8px rgba(0,100,200,.2));flex-shrink:0}",
         ".z-logo-title{font-size:clamp(1.1rem,2.5vw,1.75rem);font-weight:800;color:#0a1a33!important;white-space:normal;overflow-wrap:break-word}",
         ".z-logo-sub{font-size:.82rem;color:#334466!important;margin-top:5px}",
         /* Títulos de sección — azul oscuro fuerte */
@@ -855,13 +856,25 @@ if ia_lista:
                             color_discrete_map={'Normal': '#00e676', 'Incidencia': '#ff4b4b'},
                             title="Flujo de Riesgo — Últimas 24 horas"
                         )
+                        fig.update_traces(marker=dict(size=11, line=dict(width=1, color='rgba(255,255,255,0.5)')))
+                        
+                        # Línea de tendencia de fondo
+                        fig.add_scatter(
+                            x=st.session_state.historial_grafico['Timestamp'],
+                            y=st.session_state.historial_grafico['Riesgo'],
+                            mode='lines',
+                            line=dict(color='#818cf8', width=2),
+                            showlegend=False,
+                            opacity=0.4,
+                            hoverinfo='skip'
+                        )
+
                         fig.update_layout(
                             xaxis_title="Hora", yaxis_title="Nivel de Riesgo (%)",
                             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                            font=dict(color='#aaaaaa', family='Inter'),
+                            font=dict(family='Inter'),
                             margin=dict(l=0, r=0, t=36, b=0),
-                            legend_title_text='',
-                            title_font=dict(size=13, color='#8888aa')
+                            legend_title_text=''
                         )
                         st.plotly_chart(fig, use_container_width=True, key="24h_scatter")
 
